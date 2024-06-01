@@ -12,11 +12,12 @@ output: html_document
 library(readr)
 library(tidyr)
 library(ggplot2)
+library(dplyr)  
 
 # 导入数据集
-postings <- read_csv('职业评估数据集/postings.csv')
-companies <- read_csv("职业评估数据集/companies/companies.csv")
-employee_counts <- read_csv("职业评估数据集/companies/employee_counts.csv")
+postings <- read_csv("C:\\Users\\Lenovo\\Desktop\\archive\\postings.csv")
+companies <- read_csv("C:\\Users\\Lenovo\\Desktop\\archive\\companies\\companies.csv")
+employee_counts <- read_csv("C:\\Users\\Lenovo\\Desktop\\archive\\companies\\employee_counts.csv")
 
 # 根据公司id合并数据集
 merged_data <- merge(postings, companies, by = "company_id", all.x = TRUE)
@@ -28,7 +29,19 @@ merged_data <- merged_data[, !names(merged_data) %in% columns_to_remove]
 
 # 删除company_id为空的行
 merged_data <- merged_data[!is.na(merged_data$company_id), ]
+# 删除employee_count列  
+merged_data <- merged_data %>% select(-employee_count)  
 
+# 对merged_data数据集按照company_id分组，并更新follower_count列  
+merged_data <- merged_data %>%  
+  group_by(company_id) %>%  
+  mutate(follower_count = max(follower_count, na.rm = TRUE)) %>%  
+  ungroup()  
+
+# 删除所有列值都相同的重复行  
+merged_data <- merged_data %>%  
+  distinct()  
+  
 # 查看数据集的前几行
 head(merged_data)
 
@@ -73,19 +86,6 @@ for (col in names(merged_data)[numeric_vars]) {
   merged_data[[col]][is.na(merged_data[[col]])] <- mean(merged_data[[col]], na.rm = TRUE)
 }
 
-# 删除employee_count列  
-merged_data <- merged_data %>% select(-employee_count)  
-
-# 对merged_data数据集按照company_id分组，并更新follower_count列  
-merged_data <- merged_data %>%  
-  group_by(company_id) %>%  
-  mutate(follower_count = max(follower_count, na.rm = TRUE)) %>%  
-  ungroup()  
-
-# 删除所有列值都相同的重复行  
-merged_data <- merged_data %>%  
-  distinct()  
-  
 ```
 ## 经过简单的缺失值处理后的数据较为完整，但可能存在部分异常值（噪音数据），接下来进行异常值（噪音数据）的处理
 ```{r 异常值识别与处理}
