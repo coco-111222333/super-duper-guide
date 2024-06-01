@@ -1,0 +1,134 @@
+---
+title: "datascience work1"
+author: "syy"
+date: "2024-05-31"
+output: html_document
+---
+
+## 由于所选取的数据集的特征多，可选择解决的问题丰富，在解决这些问题之前，我们首先进行探索性数据分析，通过探索性数据分析寻找有趣的问题并进行分析建模研究。
+
+```{r 数据预处理}
+# 导入必要的库
+library(readr)
+library(tidyr)
+library(ggplot2)
+
+# 导入数据集
+postings <- read_csv('职业评估数据集/postings.csv')
+companies <- read_csv("职业评估数据集/companies/companies.csv")
+employee_counts <- read_csv("职业评估数据集/companies/employee_counts.csv")
+
+# 根据公司id合并数据集
+merged_data <- merge(postings, companies, by = "company_id", all.x = TRUE)
+merged_data <- merge(merged_data, employee_counts, by = "company_id", all.x = TRUE)
+
+# 根据研究主题删除一些无关的列
+columns_to_remove <- c("job_posting_url", "application_url", "application_type", "posting_domain", "sponsored", "currency", "country", "state", "city","zip_code", "address", "url", "time_recorded")
+merged_data <- merged_data[, !names(merged_data) %in% columns_to_remove]
+
+# 删除company_id为空的行
+merged_data <- merged_data[!is.na(merged_data$company_id), ]
+
+# 查看数据集的前几行
+head(merged_data)
+
+# 查看数据集的列信息
+str(merged_data)
+
+# 检查缺失值
+missing_values <- colSums(is.na(merged_data))
+missing_values <- missing_values[missing_values > 0]
+missing_values
+
+# 计算缺失值比例
+missing_data <- colSums(is.na(merged_data)) / nrow(merged_data) * 100
+
+# 创建包含缺失值比例的数据框
+missing_data_df <- data.frame(variable = names(missing_data), missing_percentage = missing_data)
+
+# 可视化缺失值
+ggplot(data = missing_data_df, aes(x = variable, y = missing_percentage)) +
+  geom_point(size = 3, color = "blue") +
+  geom_text(aes(label = sprintf("%.1f%%", missing_percentage)), vjust = -0.5) +
+  labs(title = "Percentage of Missing Values",
+       x = "Variable",
+       y = "Percentage") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#根据可视化后的缺失值对缺失值较大的列作相应的处理
+# 将时间数据转化为日期时间格式
+merged_data$closed_time <- as.POSIXct(merged_data$closed_time)
+merged_data$listed_time <- as.POSIXct(merged_data$listed_time)
+merged_data$expiry <- as.POSIXct(merged_data$expiry)
+
+# 填充0-1变量remote_allowed列的缺失值为0
+merged_data$remote_allowed[is.na(merged_data$remote_allowed)] <- 0
+
+# 找出数值型变量
+numeric_vars <- sapply(merged_data, is.numeric)
+numeric_vars
+
+# 对数值型变量使用均值填充进行缺失值处理
+for (col in names(merged_data)[numeric_vars]) {
+  merged_data[[col]][is.na(merged_data[[col]])] <- mean(merged_data[[col]], na.rm = TRUE)
+}
+
+
+```
+## 经过简单的缺失值处理后的数据较为完整，但可能存在部分异常值（噪音数据），接下来进行异常值（噪音数据）的处理
+```{r 异常值识别与处理}
+#1.箱线图
+# 绘制数值型数据的箱线图
+boxplot(merged_data[, numeric_vars])
+
+# 标识异常值
+identify(merged_data$numeric_var1, merged_data$numeric_var2, labels=merged_data$id)
+
+#2.Z-score法
+# 定义一个函数来计算Z-score
+z_score <- function(x) {
+  (x - mean(x)) / sd(x)
+}
+
+# 计算Z-score
+z_scores <- apply(merged_data[, numeric_vars], 2, z_score)
+
+# 找出Z-score大于3或小于-3的数据点
+outliers <- which(abs(z_scores) > 3, arr.ind = TRUE)
+
+```
+## 拿到清洗好的数据后，根据数据特征分析进行建模方向的探讨。
+```{r 数据特征分析}
+#1.数值型变量描述性统计分析与可视化
+# 提取数值型变量
+numeric_data <- merged_data[, numeric_vars]
+
+# 将科学计数法表示的数值型数据转化为普通数值型
+options(scipen = 999)
+
+# 描述性统计分析
+summary(numeric_data)
+
+# 绘制直方图
+par(mfrow=c(2,2)) # 分成2行2列
+for (col in colnames(numeric_data)) {
+  hist(numeric_data[[col]], main=col)
+}
+
+# 绘制箱线图
+boxplot(numeric_data)
+
+#尝试性探索
+# 找到follower_count列前十个最大值对应的索引
+top10_indices <- order(merged_data$follower_count, decreasing = TRUE)[1:10]
+
+# 获取前十个最大值对应的公司名称与ID
+top10_companies <- merged_data[top10_indices, c("company_name", "company_id")]
+
+# 输出前十个最大值对应的公司名称与ID
+print(top10_companies)
+
+
+```
+
+
