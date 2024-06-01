@@ -131,4 +131,3 @@ print(top10_companies)
 
 ```
 
-
