@@ -1,0 +1,74 @@
+```{r}
+# 假设merged_data数据集已经被加载到R环境中  
+  
+# 查看数据集的前几行  
+head(merged_data)  
+  
+# 描述性统计  
+# 分别计算允许远程和不允许远程职位的申请数量的描述性统计  
+summary_remote_allowed <- merged_data %>%  
+  group_by(remote_allowed) %>%  
+  summarise(  
+    mean_applies = mean(applies, na.rm = TRUE),  
+    median_applies = median(applies, na.rm = TRUE),  
+    sd_applies = sd(applies, na.rm = TRUE),  
+    n = n()  
+  )  
+print(summary_remote_allowed)  
+  
+# 数据可视化  
+# 绘制箱线图比较两组的申请数量  
+library(ggplot2)  
+ggplot(merged_data, aes(x = factor(remote_allowed, labels = c("不允许远程", "允许远程")), y = applies)) +  
+  geom_boxplot() +  
+  labs(title = "允许远程工作与申请数量的关系", x = "是否允许远程工作", y = "申请数量") +  
+  theme_minimal()  
+  
+# 假设merged_data数据集已经被加载到R环境中  
+  
+# 提取两组的申请数量  
+applies_remote_allowed <- merged_data$applies[merged_data$remote_allowed == 1]  
+applies_remote_not_allowed <- merged_data$applies[merged_data$remote_allowed == 0]  
+  
+# 进行Mann-Whitney U检验  
+result <- wilcox.test(applies_remote_allowed, applies_remote_not_allowed)  
+  
+# 打印结果  
+print(result)
+  
+# 解读结果  
+# 如果p值小于显著性水平（如0.05），则拒绝零假设，认为两组在申请数量上存在显著差异
+```
+```{r}
+# 假设你的数据集名为merged_data  
+  
+# 提取允许远程办公和不允许远程办公的views数据  
+views_remote_allowed <- merged_data$views[merged_data$remote_allowed == 1]  
+views_remote_not_allowed <- merged_data$views[merged_data$remote_allowed == 0]  
+  
+# 进行Mann-Whitney U检验  
+result <- wilcox.test(views_remote_allowed, views_remote_not_allowed)  
+  
+# 打印结果  
+print(result)
+```
+```{r}
+  
+# 进行线性回归分析  
+model <- lm(views ~ remote_allowed, data = merged_data)  
+  
+# 显示模型摘要，包括系数、R平方值和p值等  
+summary(model)  
+
+#使用ggplot2包创建分组条形图
+ggplot(merged_data, aes(x = factor(remote_allowed), y = views)) +  
+  stat_summary(fun = mean, geom = "bar", fill = "steelblue", position = position_dodge()) +  
+  geom_errorbar(stat = "summary", fun.data = mean_sdl, fun.args = list(mult = 1),  
+                width = 0.2, position = position_dodge(0.9)) +  
+  labs(title = "Average Views by Remote Allowed",  
+       x = "Remote Allowed",  
+       y = "Average Views") +  
+  theme_minimal() 
+  
+
+```
