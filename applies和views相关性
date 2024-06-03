@@ -1,0 +1,13 @@
+# 计算皮尔逊相关系数并进行显著性检验  
+cor_test_result <- cor.test(merged_data$views, merged_data$applies)  
+  
+# 打印结果  
+print(cor_test_result)  
+  
+# 想得到相关系数 
+correlation_coefficient <- cor(merged_data$views, merged_data$applies)  
+print(correlation_coefficient)  
+  
+# 使用plot()和abline()函数  
+plot(merged_data$views, merged_data$applies, xlab = "Views", ylab = "Applies", main = "Scatterplot of Views vs. Applies")  
+abline(lm(applies ~ views, data = merged_data), col = "red")# 添加线性拟合线
