@@ -5,8 +5,7 @@ library(ggplot2)
 library(dplyr)
 
 # 导入数据集
-setwd("C:/Users/adilai/Desktop/数据科学大作业")
-postings <- read.csv("postings.csv",header = T)
+postings <- read.csv("./postings.csv",header = T)
 is.data.frame(postings)
 
 #查看缺失值
@@ -58,7 +57,7 @@ sapply(postings,function(x) sum(is.na(x)))
 
 #使用相同的方法处理benefits
 #导入benefits
-benefits <- read.csv("jobs/benefits.csv")
+benefits <- read.csv("./jobs/benefits.csv")
 
 #删除不需要的列—inferred
 benefits <- subset(benefits,select = -c(inferred))
@@ -74,8 +73,8 @@ postings_benefits <- left_join(postings, benefits, by = "job_id")
 #开始处理skill
 #根据linkedle页面分析，skill很重要
 #导入job_skill
-job_skills <- read.csv("jobs/job_skills.csv")
-skills <- read.csv("mappings/skills.csv")
+job_skills <- read.csv("./jobs/job_skills.csv")
+skills <- read.csv("./mappings/skills.csv")
 
 # 执行左连接  
 job_skills <- merge(job_skills, skills, by = "skill_abr", all.x = TRUE) 
@@ -98,8 +97,8 @@ postings_benefits_skills <- left_join(postings_benefits, job_skills, by = "job_i
 
 #职位行业数据整理——可以分析那个行业发布的数据最多
 #导入数据
-job_industries <- read.csv("jobs/job_industries.csv")
-industries <- read.csv("mappings/industries.csv")
+job_industries <- read.csv("./jobs/job_industries.csv")
+industries <- read.csv("./mappings/industries.csv")
 # 执行左连接  
 industry <- merge(job_industries, industries, by = "industry_id", all.x = TRUE) 
 #删除多于的列industry_id
@@ -133,12 +132,12 @@ postings_skills_benefits_industry <- left_join( postings_benefits_skills,industr
 #公司数据整理！！！！
 #数据导入
 data <- postings_skills_benefits_industry
-companies <- read.csv("companies/companies.csv",header = T)
+companies <- read.csv("./companies/companies.csv",header = T)
 #删除companies中不需要的列：
 companies <- subset(companies,select = -c(state,zip_code,address,city))
 #company_specialities <- read.csv("companies/company_specialities.csv")
-company_industries <- read.csv("companies/company_industries.csv")
-employee_counts <- read.csv("companies/employee_counts.csv")
+company_industries <- read.csv("./companies/company_industries.csv")
+employee_counts <- read.csv("./companies/employee_counts.csv")
 #分组聚合=====觉得这个company_specialities没有什么研究价值，有company_industries。
 #company_specialities<-  company_specialities%>%  
  # group_by(company_id) %>%  
@@ -198,38 +197,36 @@ sapply(data, function (x) sum(is.na (x)))
 #1.首先删除不需要的列
 #采用dplyr中的select函数
 data<- subset(data,select = -c(job_posting_url,application_url,application_type,
-                               expiry,closed_time,formatted_experience_level,
-                               skills_desc,listed_time, posting_domain, currency,
-                               compensation_type,time_recorded,url,name))
+                               expiry,closed_time,skills_desc,listed_time,
+                               posting_domain, currency, compensation_type,
+                               time_recorded,url,name,sponsored,country))
 
 #说明混淆变量
 #industries_name是职位的。type.x是benefit的，type.y是公司的。description.x是职位的，description.y是公司的
 #后面会改名
 #根据缺失值进行处理
 sapply(data, function (x) sum(is.na (x)))
-#删除有缺失值的skill_name,industries_name,description.y,country,type.y,company_id
+#删除有缺失值的skill_name,industries_name,description.y,type.y,company_id
 #employee_count,follower_count
 #删除company_id为空的行
 data <- data[!is.na(data$company_id), ] 
 data <- data[!is.na(data$skill_name), ] 
 data <- data[!is.na(data$industries_name), ] 
 data <- data[!is.na(data$description.y), ] 
-data <- data[!is.na(data$country), ] 
 data <- data[!is.na(data$type.y), ] 
 data <- data[!is.na(data$employee_count), ] 
 data <- data[!is.na(data$follower_count), ] 
-
 #数据已经从123849变为120442，删了将近3000数据
 #现在查看一下缺失值
-sapply(data, function (x) sum(is.na (x)))
-#问题在于人数与规模不相符，公司规模有缺失值-4567。因此删除这一列~
+sapply(data, function (x) sum(is.na (x))) 
+#company_size有4567行缺失值，进行删除
 data <- subset(data,select=-c(company_size))
 #查看是否有空值
 # 使用sapply函数计算每列空字符串的数量  
 sapply(data, function(x) sum(x == "")) 
 #pay_period缺失值太大，不管。
 #根据结果显示，删除有空值的行~description.x company_name,description.y
-# 删除company_name为空字符串的行  
+# 删除company_name、description.x、description.y 为空字符串的行  
 data <- data %>%  
   filter(description.x != "" &  company_name != "" & description.y != "")  
 
@@ -260,9 +257,6 @@ data$applies[is.na(data$applies)] <- 0
 #将views中的缺失值改为0
 data$views[is.na(data$views)] <- 0
 
-#将type中的缺失值改为0
-data$type.x[is.na(data$type.x)] <- 0
-
 #再查看所有列的缺失值
 sapply(data, function (x) sum(is.na (x)))
 
@@ -270,10 +264,10 @@ sapply(data, function (x) sum(is.na (x)))
 #改变量名称
 colnames(data)[colnames(data) == "description.x"] <- "P_description"   #指向职位描述
 colnames(data)[colnames(data) == "description.y"] <- "C_description" #指向公司描述
-colnames(data)[colnames(data) == "original_listed_time"] <- "isted_time" #职位发出时间
+colnames(data)[colnames(data) == "original_listed_time"] <- "listed_time" #职位发出时间
 colnames(data)[colnames(data) == "skill_name"] <- "skills" #技能
 colnames(data)[colnames(data) == "industries_name"] <- "P_industry" #指向职位的行业领域
-colnames(data)[colnames(data) == "type.x"] <- "benefit_tyoe" #福利
+colnames(data)[colnames(data) == "type.x"] <- "benefit_type" #福利
 colnames(data)[colnames(data) == "type.y"] <- "C_industry" 
 # 查看job_id是否都是唯一的  
 unique_job_id <- !any(duplicated(data$job_id))
@@ -283,13 +277,68 @@ unique_job_id
 #前面的数据已经好了就用这个data
 
 
-#嘿嘿又出现问题啦，删除各种salary和pay_period
-#因为大家用的都是merged_data,因此在这里换一下
-merged_data <- subset(data,select=-c(min_salary,max_salary,med_salary,pay_period))
+# 创建一个包含所有可能福利类型的向量
+benefit_types <- c("401(k)", "Child care support", "Commuter benefits", "Dental insurance", 
+                   "Disability insurance", "Medical insurance", "Paid maternity leave", 
+                   "Pension plan", "Student loan assistance", "Tuition assistance", 
+                   "Vision insurance")
 
-#用这个merged_data
-#完成啦
+# 将缺失值转换为字符串 "NA"，方便在后续的匹配中处理
+data$benefit_type[is.na(data$benefit_type)] <- "NA"
 
+# 循环遍历每种福利类型，并添加对应的二分类变量列
+for (bt in benefit_types) {  
+  # 使用 strsplit() 函数将字符串拆分为单独的福利类型
+ data[[bt]] <- ifelse(sapply(strsplit(data$benefit_type, ", "), function(x) bt %in% x), 1, 0)  
+ }
+
+# 检查数据框的结构
+str(data)
+#删除原来的benefit_type
+data <- subset(data,select=-c(benefit_type))
+#至此福利类型结果已完成
+
+table(data$formatted_work_type)
+table(data$work_type)
+#到工作类型,发现这两列是一个东西，删除formatted_work_type
+#删除formatted_work_type
+data <- subset(data,select=-c(work_type))
+# 查看新数据框的前几行  
+
+#变量类型转换
+
+#首先各种福利类型是因子变量，工作类型、远程办公、formatted_experience_level
+#首先处理formatted_work_type中的空值为unknown
+# 将空字符串替换为 "none"
+for (i in 1:length(data$formatted_experience_level)) {
+  if (data$formatted_experience_level[i] == "") {
+    data$formatted_experience_level[i] <- "none"
+  }
+}  
+#我就做到这里啦，成功啦！剩下的各自自己改变一下数据类型（如果需要）
+
+
+#符合大家代码，改变一下数据的名字
+merged_data <- data
+
+#删除不需要的数据
+rm(benefits)
+rm(companies)
+rm(company_industries)
+rm(employee_counts)
+rm(industries)
+rm(industry)
+rm(job_industries)
+rm(job_skills)
+rm(latest_counts)
+rm(postings)
+rm(postings_benefits)
+rm(postings_benefits_skills)
+rm(postings_skills_benefits_industry)
+rm(skills)
+rm(data)
+
+#至此数据预处理圆满完成！！！开心~
 
 
 
@@ -297,11 +346,14 @@ merged_data <- subset(data,select=-c(min_salary,max_salary,med_salary,pay_period
 
 
 #--------------------------------------------------------------------------
+#这是公司数据抽取
 
+
+
+
+#这里要用的话不要删除data哦
 #这里是公司数据提取
 #这里可以看看，也可以直接用merged_data,不用company
-
-
 
 
 
