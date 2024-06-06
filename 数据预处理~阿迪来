@@ -279,8 +279,8 @@ unique_job_id
 
 # 创建一个包含所有可能福利类型的向量
 benefit_types <- c("401(k)", "Child care support", "Commuter benefits", "Dental insurance", 
-                   "Disability insurance", "Medical insurance", "Paid maternity leave", 
-                   "Pension plan", "Student loan assistance", "Tuition assistance", 
+                   "Disability insurance", "Medical insurance", "Paid paternity leave", 
+                   "Paid maternity leave","Pension plan", "Student loan assistance", "Tuition assistance", 
                    "Vision insurance")
 
 # 将缺失值转换为字符串 "NA"，方便在后续的匹配中处理
@@ -318,9 +318,6 @@ for (i in 1:length(data$formatted_experience_level)) {
 #我就做到这里啦，成功啦！剩下的各自自己改变一下数据类型（如果需要）
 
 
-#符合大家代码，改变一下数据的名字
-merged_data <- data
-
 #删除不需要的数据
 rm(benefits)
 rm(companies)
@@ -336,26 +333,59 @@ rm(postings_benefits)
 rm(postings_benefits_skills)
 rm(postings_skills_benefits_industry)
 rm(skills)
-rm(data)
 
 #至此数据预处理圆满完成！！！开心~
+#呜呜呜呜发现要统一类型呢
+#先给401（k)改个名
+data$`401(k)`<- as.factor(data$`401(k)`)
+data$`Child care support` <- as.factor(data$`Child care support`)
+data$`Commuter benefits` <- as.factor(data$`Commuter benefits`)
+data$`Dental insurance` <- as.factor(data$`Dental insurance`)
+data$`Disability insurance` <- as.factor(data$`Disability insurance`)
+data$`Medical insurance` <- as.factor(data$`Medical insurance`)
+data$`Paid paternity leave` <- as.factor(data$`Paid paternity leave`)
+data$`Paid maternity leave` <- as.factor(data$`Paid maternity leave`)
+data$`Pension plan` <- as.factor(data$`Pension plan`)
+data$`Student loan assistance` <- as.factor(data$`Student loan assistance`)
+data$`Tuition assistance` <- as.factor(data$`Tuition assistance`)
+data$`Vision insurance` <- as.factor(data$`Vision insurance`)
+#给401（k)改个名——查找网上资料是retirement savings plan,其他也改名，后面不好弄空格
+colnames(data)[colnames(data) == "401(k)"] <- "Retirement_savings_plan"
+colnames(data)[colnames(data) == "Child care support"] <- "Child_care_support"
+colnames(data)[colnames(data) == "Commuter benefits"] <- "Commuter_benefits"
+colnames(data)[colnames(data) == "Dental insurance"] <- "Dental_insurance"
+colnames(data)[colnames(data) == "Disability insurance"] <- "Disability_insurance"
+colnames(data)[colnames(data) == "Medical insurance"] <- "Medical insurance"
+colnames(data)[colnames(data) == "Paid paternity leave"] <- "Paid_paternity_leave"
+colnames(data)[colnames(data) == "Paid maternity leave"] <- "Paid_maternity_leave"
+colnames(data)[colnames(data) == "Pension plan"] <- "Pension_plan"
+colnames(data)[colnames(data) == "Student loan assistance"] <- "Student_loan_assistance"
+colnames(data)[colnames(data) == "Tuition assistance"] <- "Tuition_assistance"
+colnames(data)[colnames(data) == "Vision insurance"] <- "Vision_insurance"
+
+#剩下的
+data$formatted_work_type <- as.factor(data$formatted_work_type)
+data$remote_allowed <- as.factor(data$remote_allowed)
+data$formatted_experience_level <- as.factor(data$formatted_experience_level)
+data$views <- as.numeric(data$views)
+data$applies <- as.numeric(data$applies)
+data$employee_count <- as.numeric(data$employee_count)
+data$follower_count <- as.numeric(data$follower_count)
+#符合大家代码，改变一下数据的名字
+merged_data <- data
+rm(data)
 
 
-
+###完成啦
 
 
 
 #--------------------------------------------------------------------------
 #这是公司数据抽取
 
-
-
-
 #这里要用的话不要删除data哦
 #这里是公司数据提取
 #这里可以看看，也可以直接用merged_data,不用company
-
-
 
 #抽取公司数据的事情！
 # 先提取公司的数据，company_id, C_description,C_industry,country,employee_count,follower_count
