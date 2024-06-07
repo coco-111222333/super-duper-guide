@@ -1,13 +1,259 @@
+
+```{r}
+# 导入必要的库
+library(ggplot2)
+library(dplyr)  
+
+#applies绘制散点图
+merged_data$observation <- 1:nrow(merged_data) # 添加一个观察序号列  
+ggplot(merged_data, aes(x=observation, y=applies)) +  
+  geom_point() +  
+  labs(title="Applies Scatter Plot", x="Observation Number", y="Applies Value") +  
+  theme_minimal()
+
+
 # 计算皮尔逊相关系数并进行显著性检验  
 cor_test_result <- cor.test(merged_data$views, merged_data$applies)  
-  
+
 # 打印结果  
 print(cor_test_result)  
-  
+
 # 想得到相关系数 
 correlation_coefficient <- cor(merged_data$views, merged_data$applies)  
 print(correlation_coefficient)  
-  
+
 # 使用plot()和abline()函数  
 plot(merged_data$views, merged_data$applies, xlab = "Views", ylab = "Applies", main = "Scatterplot of Views vs. Applies")  
 abline(lm(applies ~ views, data = merged_data), col = "red")# 添加线性拟合线
+
+```
+
+```{r}
+# 从merged_data中选择views和applies列，并删除applies为0的行  
+new_dataset <- merged_data[merged_data$applies != 0, c("views", "applies")]
+```
+
+```{r}
+# 使用ggplot2绘制散点图  
+ggplot(new_dataset, aes(x = views, y = applies)) +  
+  geom_point() +  
+  labs(title = "Views vs Applies Scatter Plot",  
+       x = "Views",  
+       y = "Applies") +  
+  theme_minimal()
+```
+
+```{r}
+filtered_dataset <- new_dataset[new_dataset$views < 1000 ,]
+ggplot(filtered_dataset, aes(x = views, y = applies)) +  
+  geom_point() +  
+  labs(title = "Views vs Applies Scatter Plot",  
+       x = "Views",  
+       y = "Applies") +  
+  theme_minimal()
+```
+
+
+
+```{r}
+library(caret)  
+library(nnet)  
+library(rpart)  
+  
+
+data <- filtered_dataset
+  
+# 划分训练集和测试集  
+set.seed(123) # 设置随机种子以确保结果可复现  
+trainIndex <- createDataPartition(data$applies, p = .8,   
+                                   list = FALSE,   
+                                   times = 1)  
+train <- data[ trainIndex,]  
+test  <- data[-trainIndex,]
+# 线性回归模型  
+lm_model <- lm(applies ~ views, data = train)  
+summary(lm_model) #Residual standard error: 19.01 on 18301 degrees of freedomMultiple R-squared:  0.5766,	Adjusted R-squared:  0.5766 F-statistic: 2.492e+04 on 1 and 18301 DF,  p-value: < 2.2e-16
+
+  
+# 决策树模型  
+rpart_model <- rpart(applies ~ views, data = train)  
+  
+# 神经网络模型（可能需要调整size和decay参数以获得最佳性能）  
+nnet_model <- nnet(applies ~ views, data = train, size = 5, decay = 0.1, maxit = 500)
+```
+```{r}
+# 预测测试集结果  
+lm_pred <- predict(lm_model, newdata = test)  
+rpart_pred <- predict(rpart_model, newdata = test)  
+nnet_pred <- predict(nnet_model, newdata = test, type = "raw")  
+  
+# 计算模型的性能指标（如均方误差MSE）  
+lm_mse <- mean((test$applies - lm_pred)^2)  
+rpart_mse <- mean((test$applies - rpart_pred)^2)  
+nnet_mse <- mean((test$applies - nnet_pred)^2)  
+  
+# 打印性能指标  
+cat("Linear Regression MSE:", lm_mse, "\n")  
+cat("Decision Tree MSE:", rpart_mse, "\n")  
+cat("Neural Network MSE:", nnet_mse, "\n")
+```
+
+
+
+```{r}
+library(ggplot2)  
+  
+# 假设你的测试集数据框名为test，且包含views、applies以及各个模型的预测值  
+# 如果还没有将这些预测值添加到测试集数据框中，请先添加它们  
+test$lm_pred <- lm_pred  
+test$rpart_pred <- rpart_pred  
+test$nnet_pred <- nnet_pred  
+  
+# 绘制线性回归模型的预测结果(红色的线y=x表示完美的预测——即预测值与实际值完全相等。点越接近这条线，说明模型的预测越准确。)  
+ggplot(test, aes(x = applies, y = lm_pred)) +  
+  geom_point(alpha = 0.6) +  
+  geom_abline(slope = 1, intercept = 0, color = "red") +  
+  xlab("Actual Applies") +  
+  ylab("Predicted Applies (Linear Regression)") +  
+  ggtitle("Linear Regression Model Prediction") +  
+  theme_minimal()  
+  
+# 绘制决策树模型的预测结果  
+ggplot(test, aes(x = applies, y = rpart_pred)) +  
+  geom_point(alpha = 0.6) +  
+  geom_abline(slope = 1, intercept = 0, color = "red") +  
+  xlab("Actual Applies") +  
+  ylab("Predicted Applies (Decision Tree)") +  
+  ggtitle("Decision Tree Model Prediction") +  
+  theme_minimal()  
+  
+# 绘制神经网络模型的预测结果  
+ggplot(test, aes(x = applies, y = nnet_pred)) +  
+  geom_point(alpha = 0.6) +  
+  geom_abline(slope = 1, intercept = 0, color = "red") +  
+  xlab("Actual Applies") +  
+  ylab("Predicted Applies (Neural Network)") +  
+  ggtitle("Neural Network Model Prediction") +  
+  theme_minimal()
+```
+```{r}
+# 加载所需的库  
+library(randomForest)  
+  
+# 假设你的数据已经在一个名为filtered_dataset的数据框中  
+# filtered_dataset <- read.csv("your_filtered_dataset.csv")  # 如果数据在CSV文件中  
+  
+# 提取views和applies列  
+views <- filtered_dataset$views  
+applies <- filtered_dataset$applies  
+
+# 创建数据框以用于模型训练  
+train_data <- data.frame(views = views, applies = applies)  
+  
+# 训练随机森林模型  
+rf_model <- randomForest(applies ~ views, data = train_data, ntree = 100, importance = TRUE)  
+  
+# 输出模型的重要性  
+print(rf_model$importance)  
+  
+# 进行预测（在这个例子中，我们直接在训练集上进行预测，实际应用中应该使用测试集）  
+predictions <- predict(rf_model, train_data)  
+  
+# 创建一个新的数据框来保存applies实际值和预测值  
+plot_data <- data.frame(Actual = applies, Predicted = predictions)  
+  
+# 绘制散点图，横坐标为applies实际值，纵坐标为预测值  
+plot(plot_data$Actual, plot_data$Predicted, xlab = "Actual Applies", ylab = "Predicted Applies",  
+     main = "Actual vs. Predicted Applies", pch = 19)  
+  
+# 添加y=x的红线  
+abline(a = 0, b = 1, col = "red")  
+  
+# 添加图例说明红线是y=x  
+legend("topleft", legend = "y = x", col = "red", lty = 1)
+
+# 打印模型的摘要信息，包括均方误差(MSE)和决定系数(R-squared)  
+print(rf_model)  
+```
+```{r}
+# 加载所需的库    
+library(randomForest)    
+    
+# 假设你的数据已经在一个名为filtered_dataset的数据框中    
+# filtered_dataset <- read.csv("your_filtered_dataset.csv")  # 如果数据在CSV文件中    
+    
+# 提取views和applies列    
+views <- filtered_dataset$views    
+applies <- filtered_dataset$applies    
+  
+# 创建数据框以用于模型训练    
+train_data <- data.frame(views = views, applies = applies)    
+    
+# 训练随机森林模型    
+rf_model <- randomForest(applies ~ views, data = train_data, ntree = 100, importance = TRUE)    
+  
+# 模型评估  
+# 打印模型的摘要信息，包括均方误差(MSE)  
+print(rf_model)  
+  
+# 特征重要性  
+# 输出模型的重要性    
+print(rf_model$importance)    
+  
+# 进行预测（在这个例子中，直接在训练集上进行预测，但实际应用中应使用独立的测试集）  
+predictions <- predict(rf_model, train_data)    
+    
+# 残差分析  
+residuals <- applies - predictions  
+# 绘制残差图  
+plot(train_data$views, residuals, xlab = "Views", ylab = "Residuals",  
+     main = "Residual Plot")  
+abline(h = 0, col = "red", lty = 2)  # 添加残差为0的参考线  
+  
+# 预测与实际对比  
+# 创建一个新的数据框来保存applies实际值和预测值    
+plot_data <- data.frame(Actual = applies, Predicted = predictions)    
+    
+# 绘制散点图，横坐标为applies实际值，纵坐标为预测值    
+plot(plot_data$Actual, plot_data$Predicted, xlab = "Actual Applies", ylab = "Predicted Applies",    
+     main = "Actual vs. Predicted Applies", pch = 19)    
+    
+# 添加y=x的红线    
+abline(a = 0, b = 1, col = "red")    
+    
+# 添加图例说明红线是y=x    
+legend("topleft", legend = "y = x", col = "red", lty = 1)  
+  
+# 如果需要，可以添加交叉验证的代码来评估模型泛化能力  
+# 
+library(caret)  
+set.seed(123) # 设置随机种子以确保结果可复现  
+training_indices <- createDataPartition(applies, p = 0.8, list = FALSE)  
+train_set <- train_data[training_indices, ]  
+test_set <- train_data[-training_indices, ]  
+  
+# 使用训练集重新训练模型  
+ rf_model_cv <- randomForest(applies ~ views, data = train_set, ntree = 100, importance = TRUE)  
+  
+# 在测试集上进行预测  
+ predictions_test <- predict(rf_model_cv, test_set)  
+  
+# 计算测试集上的MSE  
+test_mse <- mean((test_set$applies - predictions_test)^2)  
+print(paste("Test MSE:", test_mse))
+
+#下面这个跑了20分钟跑不出来
+#为了在模型中包含除了applies之外的所有列，我们可以使用.来代表其他所有列  
+formula <- as.formula("applies ~ views + .")  
+# 但是我们需要从.中排除applies列，因此我们需要构建一个正确的公式  
+all_columns <- colnames(merged_data)  
+all_columns <- all_columns[all_columns != "applies"] # 排除applies列  
+formula <- as.formula(sprintf("applies ~ %s", paste(all_columns, collapse=" + ")))  
+  
+# 训练随机森林模型  
+rf_model <- randomForest(formula, data = merged_data, ntree = 100, importance = TRUE)  
+  
+# 查看特征重要性  
+imp <- importance(rf_model)  
+print(imp)  
+```
