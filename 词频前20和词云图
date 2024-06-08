@@ -1,1 +1,87 @@
+计算词频和绘制词云图
+library(dplyr)  
+library(tidytext)  
+library(wordcloud)  
+library(wordcloud2) 
+library(stringr)  
+
+# 自定义的停用词列表    
+stop_words_custom <- c("and", "an", "you", "our", "we", "from", "this", "at", "not", "may", "is", "as", "be", "on", "all", "by", "are", "that", "the", "in", "a", "with", "to", "of", "or", "for")    
+# 计算每个description的词数，并保留job_id和title  
+> postings <- read_csv("C:/Users/LINGX/Desktop/archive/postings.csv")
+
+word_counts <- postings %>%  
+  mutate(word_count = str_count(description, "\\S+")) %>% # 使用正则表达式计算词数  
+  arrange(desc(word_count)) %>% # 按词数降序排列  
+  select(job_id, title, word_count) %>% # 选择job_id, title和word_count列  
+  head(20) # 取前20行  
+
+# 打印结果  
+print(word_counts)
+
+# 清洗文本数据：分词，转换为小写，删除标点符号和停用词（包括自定义的停用词）  
+cleaned_text <- postings %>%  
+  unnest_tokens(word, description, token = "words",  
+                to_lower = TRUE) %>%  
+  anti_join(stop_words, by = "word") # 过滤掉停用词  
+
+# 统计所有文本的词频  
+word_freq <- cleaned_text %>%  
+  count(word, sort = TRUE)  
+
+# 选出词频最高的50个词  
+top_words <- word_freq %>%  
+  head(50)  
+
+print(top_words)  
+
+# 绘制词云图  
+wordcloud(words = top_words$word, freq = top_words$n, min.freq = 1,  
+          random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+
+
+词频分类区间
+library(dplyr)  
+library(stringr)  
+
+postings <- read.csv("C:/Users/LINGX/Desktop/archive/postings.csv", stringsAsFactors = FALSE)  
+
+# 计算每个文本的词数  
+postings <- postings %>%  
+  mutate(word_count = str_count(description, "\\W+\\w+\\W*")) # 使用正则表达式计算词数  
+
+# 分类词数  
+postings <- postings %>%  
+  mutate(  
+    word_count_bin = case_when(  
+      word_count >= 1 & word_count <= 500 ~ "1-500",  
+      word_count > 500 & word_count <= 1000 ~ "500-1000",  
+      word_count > 1000 & word_count <= 1500 ~ "1000-1500",  
+      word_count > 1500 & word_count <= 2000 ~ "1500-2000",  
+      word_count > 2000 & word_count <= 2500 ~ "2000-2500",  
+      word_count > 2500 & word_count <= 3000 ~ "2500-3000",  
+      word_count > 2500 & word_count <= 3000 ~ "2500-3000",  
+      TRUE ~ NA_character_  
+    )  
+  )  
+
+# 计数每个桶中的文本数量  
+word_count_summary <- postings %>%  
+  group_by(word_count_bin) %>%  
+  summarise(n = n(), .groups = 'drop') %>%  # 使用dplyr的summarise函数计数  
+  arrange(desc(n))  # 按数量降序排列  
+
+print(word_count_summary)
+
+# 绘制直方图  
+barplot(word_count_summary$n,   
+        names.arg = word_count_summary$word_count_bin,  
+        main = "Text Length Distribution",   
+        xlab = "Word Count Range",   
+        ylab = "Number of Texts",  
+        cex.names = 0.8, # 控制标签大小  
+        col = "steelblue", # 设置条形颜色  
+        border = NA) # 设置条形边框为无
+
+
 
