@@ -1,0 +1,22 @@
+# 关于主题词
+# 由于不同文档的主题词数量可能不同，我们需要将它们转换成相同长度的列表（用NA填充较短的列表）  
+max_length <- 500  
+topic_words_lists_padded <- lapply(topic_words_lists, function(words) {  
+  if (length(words) < max_length) {  
+    words <- c(words, rep(NA, max_length - length(words)))  
+  }  
+  words  
+})  
+
+# 将结果转换为一个数据框列，其中每行是一个包含主题词的字符向量  
+postings$topic_words <- do.call(rbind, lapply(topic_words_lists_padded, as.character))  
+
+# 查看结果（注意：topic_words现在是一个数据框列，每行是一个字符向量）  
+head(postings)  
+
+# 如果你想要一个更简单的字符串列，其中每行只包含一个由逗号分隔的主题词字符串，  
+# 你可以使用sapply或vapply来合并每个列表中的词  
+postings$topic_words_string <- sapply(topic_words_lists_padded, function(words) paste(words[!is.na(words)], collapse = ", "))  
+
+# 查看结果（现在topic_words_string是一个简单的字符串列）  
+head(postings)
