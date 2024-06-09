@@ -60,15 +60,13 @@ model <- lm(views ~ remote_allowed, data = merged_data)
 # 显示模型摘要，包括系数、R平方值和p值等  
 summary(model)  
 
-#使用ggplot2包创建分组条形图
+#使用ggplot2包创建条形图
 ggplot(merged_data, aes(x = factor(remote_allowed), y = views)) +  
-  stat_summary(fun = mean, geom = "bar", fill = "steelblue", position = position_dodge()) +  
-  geom_errorbar(stat = "summary", fun.data = mean_sdl, fun.args = list(mult = 1),  
-                width = 0.2, position = position_dodge(0.9)) +  
-  labs(title = "Average Views by Remote Allowed",  
+  stat_summary(fun = mean, geom = "bar", fill = "steelblue", position = position_dodge()) + labs(title = "Average Views by Remote Allowed",  
        x = "Remote Allowed",  
        y = "Average Views") +  
-  theme_minimal() 
+  theme_minimal()
+
   
 
 ```
