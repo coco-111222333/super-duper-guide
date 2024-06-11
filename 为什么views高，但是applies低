@@ -1,0 +1,749 @@
+
+```{r}
+# 导入必要的库
+library(readr)
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+
+# 导入数据集
+postings <-  read_csv("C:/Users/Lenovo/Desktop/archive/postings.csv")
+is.data.frame(postings)
+
+#查看缺失值
+sapply(postings, function (x) sum(is.na (x)))
+
+#分析缺失值:
+  #salary等列缺失值较大
+  #remote_allowed有两类，即1和NA，因此在最后数据整合后将NA改为0。
+distinct(postings, remote_allowed)
+  #与之相同处理views，applies
+  #时间列分析。发现时间几乎是从12月到4月。
+
+#（1）首先处理薪资问题
+head(postings[,c("max_salary","med_salary","min_salary")],5)
+#利用最高薪资和最低薪资来med_salary填充数据
+postings$med_salary <- ifelse(is.na(postings$med_salary), (postings$max_salary
++ postings$min_salary) / 2, postings$med_salary)
+
+#重新查看缺失值
+sapply(postings,function(x) sum(is.na(x)))
+#根据结果可以看到现在med_salary缺失值已经从117569降到87776
+#相比其他数据好很多
+
+#导入salaries数据集
+#salaries <- read.csv("jobs/salaries.csv")
+
+#利用最高薪资和最低薪资来填充数据
+#salaries$med_salary <- ifelse(is.na(salaries$med_salary), (salaries$max_salary
+#+ salaries$min_salary) / 2, salaries$med_salary)
+
+#查看缺失
+#sapply(salaries,function(x) sum(is.na(x)))
+
+#salaries <- subset(salaries,select =-c(salary_id,max_salary,min_salary,currency,
+#                                     compensation_type))
+
+# 使用 left_join 函数合并数据集，并指定你想要合并的列  
+#merged_data <- left_join(postings, salaries, by = "job_id") 
+
+#salary  <- merged_data[c("med_salary.x", "med_salary.y")]
+
+#查看缺失值
+#sapply(salary,function (x) sum(is.na (x)))
+#结果相同因此删除merge_data
+#rm(merged_data)
+#rm(salary)
+#rm(salaries)
+#因此不需要合并
+
+#使用相同的方法处理benefits
+#导入benefits
+benefits <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\jobs\\benefits.csv")
+
+#删除不需要的列—inferred
+benefits <- subset(benefits,select = -c(inferred))
+
+# 使用dplyr包进行分组和聚合  
+benefits <- benefits %>%  
+  group_by(job_id) %>%  
+  summarise(type = toString(unique(type)), .groups = 'drop')  
+#合并benefits和postings
+postings_benefits <- left_join(postings, benefits, by = "job_id")
+
+
+#开始处理skill
+#根据linkedle页面分析，skill很重要
+#导入job_skill
+job_skills <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\jobs\\job_skills.csv")
+skills <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\mappings\\skills.csv")
+
+# 执行左连接  
+job_skills <- merge(job_skills, skills, by = "skill_abr", all.x = TRUE) 
+
+#删除不需要的列skill_abr
+job_skills <- subset(job_skills,select=-c(skill_abr))
+
+# 查看发现一个job匹配多个skills，因此使用dplyr包进行分组和聚合  
+job_skills <- job_skills %>%  
+  group_by(job_id) %>%  
+  summarise( skill_name = toString(unique(skill_name)), .groups = 'drop')  
+
+# 显示聚合后的结果的前6行  
+head(job_skills)
+
+# 使用 left_join 函数合并数据集，并指定合并postings和left_join  
+postings_benefits_skills <- left_join(postings_benefits, job_skills, by = "job_id") 
+
+
+
+#职位行业数据整理——可以分析那个行业发布的数据最多
+#导入数据
+job_industries <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\jobs\\job_industries.csv")
+industries <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\mappings\\industries.csv")
+# 执行左连接  
+industry <- merge(job_industries, industries, by = "industry_id", all.x = TRUE) 
+#删除多于的列industry_id
+industry <- subset(industry,select=-c(industry_id))
+#查看一下job_id是否是唯一
+# 查看job_id是否都是唯一的  
+unique_job_id1 <- !any(duplicated(industry$job_id))
+unique_job_id1
+#结果是false，则存在重复的job_id
+#看看是否有重复行
+has_duplicates <- anyDuplicated(industry)  
+
+if (has_duplicates > 0) {  
+  print("存在重复行")  
+} else {  
+  print("没有重复行")  
+}
+#结果是没有重复行，那么就说明一个job_id存在对应多个行业#。
+# 使用dplyr包进行分组和聚合 
+industry<-  industry%>%  
+  group_by(job_id) %>%  
+  summarise(industries_name = toString(unique(industry_name)), .groups = 'drop')
+#查看industry
+head(industry)
+#合并postings_skills_benefits)和industry
+postings_skills_benefits_industry <- left_join( postings_benefits_skills,industry
+                                                ,by = "job_id")
+
+
+
+#公司数据整理！！！！
+#数据导入
+data <- postings_skills_benefits_industry
+companies <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\companies\\companies.csv")
+#删除companies中不需要的列：
+companies <- subset(companies,select = -c(state,zip_code,address,city))
+#company_specialities <- read.csv("companies/company_specialities.csv")
+company_industries <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\companies\\company_industries.csv")
+employee_counts <- read.csv("C:\\Users\\Lenovo\\Desktop\\archive\\companies\\employee_counts.csv")
+#分组聚合=====觉得这个company_specialities没有什么研究价值，有company_industries。
+#company_specialities<-  company_specialities%>%  
+ # group_by(company_id) %>%  
+  #summarise(type = toString(unique(speciality)), .groups = 'drop')
+#因此删除company_specialities数据集
+#rm(company_specialities)
+data <- left_join(data,companies,by="company_id")
+#data <- left_join(data,company_specialities,by="company_id")
+#data <- left_join(data,company_industries,by="company_id")
+#这里会显示多对多问题，所以company_industries中可能存在一个公司对应不同行业，所以进行聚合处理
+company_industries<-  company_industries%>%  
+  group_by(company_id) %>%  
+  summarise(type = toString(unique(industry)), .groups = 'drop')
+#再次运行发现问题解决了！
+data <- left_join(data,company_industries,by="company_id")
+#连接data和employee_counts数据集时删除必要的列，再连接，删除time_recorded
+#employee_counts <- subset(employee_counts,select=-c(time_recorded))
+#连接data和employee_counts数据集
+#data <- left_join(data,employee_counts,by="company_id")
+#结果发现有多对多的关系，看数据发现，一个公司的数据是有不同的时间抽取的，所以这里取每一个的最新抽取时间
+#首先对time_recorded进行处理，转换成时间数据
+# 加载 dplyr 包（如果需要的话）  
+# install.packages("dplyr")  
+library(dplyr)  
+
+# 假设 employee_counts$time_recorded 已经是秒级时间戳  
+# 将其转换为 POSIXct 日期时间对象  
+employee_counts$time_recorded <- as.POSIXct(employee_counts$time_recorded, origin = "1970-01-01", tz = "UTC")  
+
+# 现在，你可以按 company_id 和最新的 time_recorded 选择数据  
+latest_counts <- employee_counts %>%  
+  group_by(company_id) %>%  
+  slice_max(order_by = time_recorded, n = 1) %>%  
+  ungroup()  
+
+# 查看结果
+#这样就抽取成功了
+#再进行连接
+#发现还是出现多对多，发现有重复值，删除
+ 
+latest_counts <- latest_counts %>%  
+  distinct(company_id, .keep_all = TRUE)  
+
+# 查看结果  
+print(latest_counts)
+data <- left_join(data,latest_counts,by="company_id")
+#终于不再报多对多了！
+#至此所有数据合并完毕-----可喜可贺
+
+
+#查看所有列的缺失值
+sapply(data, function (x) sum(is.na (x)))
+
+
+#至此工作数据整合完毕
+#现在需要做的就是删除不需要的列，整理
+#1.首先删除不需要的列
+#采用dplyr中的select函数
+data<- subset(data,select = -c(job_posting_url,application_url,application_type,
+                               expiry,closed_time,skills_desc,listed_time,
+                               posting_domain, currency, compensation_type,
+                               time_recorded,url,name,sponsored,country))
+
+#说明混淆变量
+#industries_name是职位的。type.x是benefit的，type.y是公司的。description.x是职位的，description.y是公司的
+#后面会改名
+#根据缺失值进行处理
+sapply(data, function (x) sum(is.na (x)))
+#删除有缺失值的skill_name,industries_name,description.y,type.y,company_id
+#employee_count,follower_count
+#删除company_id为空的行
+data <- data[!is.na(data$company_id), ] 
+data <- data[!is.na(data$skill_name), ] 
+data <- data[!is.na(data$industries_name), ] 
+data <- data[!is.na(data$description.y), ] 
+data <- data[!is.na(data$type.y), ] 
+data <- data[!is.na(data$employee_count), ] 
+data <- data[!is.na(data$follower_count), ] 
+#数据已经从123849变为120442，删了将近3000数据
+#现在查看一下缺失值
+sapply(data, function (x) sum(is.na (x))) 
+#company_size有4567行缺失值，进行删除
+data <- subset(data,select=-c(company_size))
+#查看是否有空值
+# 使用sapply函数计算每列空字符串的数量  
+sapply(data, function(x) sum(x == "")) 
+#pay_period缺失值太大，不管。
+#根据结果显示，删除有空值的行~description.x company_name,description.y
+# 删除company_name、description.x、description.y 为空字符串的行  
+data <- data %>%  
+  filter(description.x != "" &  company_name != "" & description.y != "")  
+
+#数据从120442变为119469
+# 改变存储日期时间对象  
+data$original_listed_time <- as.POSIXct(data$original_listed_time/ 1000, origin = "1970-01-01", tz = "UTC")  
+
+
+#选取了3月20号到4月20号的一个月数据！
+# 导入需要的库
+library(lubridate)
+tart_date <- ymd_hms("2022-3-20 00:00:00")  # 开始日期
+
+# 使用ymd_hms函数解析日期和时间  
+end_date <- ymd_hms("2024-04-05 00:00:00")
+
+data <- data[data$original_listed_time>= tart_date & data$original_listed_time <= end_date, ]
+
+#查看缺失值处理其他问题
+sapply(data, function (x) sum(is.na (x)))
+#缺失值主要集中在各种salary,views, applies,remote_allowed,type.x
+#将remote_allowed中的缺失值改为0
+data$remote_allowed[is.na(data$remote_allowed)] <- 0
+
+#将applies中的缺失值改为0
+data$applies[is.na(data$applies)] <- 0
+
+#将views中的缺失值改为0
+data$views[is.na(data$views)] <- 0
+
+#再查看所有列的缺失值
+sapply(data, function (x) sum(is.na (x)))
+
+#工资不做处理
+#改变量名称
+colnames(data)[colnames(data) == "description.x"] <- "P_description"   #指向职位描述
+colnames(data)[colnames(data) == "description.y"] <- "C_description" #指向公司描述
+colnames(data)[colnames(data) == "original_listed_time"] <- "listed_time" #职位发出时间
+colnames(data)[colnames(data) == "skill_name"] <- "skills" #技能
+colnames(data)[colnames(data) == "industries_name"] <- "P_industry" #指向职位的行业领域
+colnames(data)[colnames(data) == "type.x"] <- "benefit_type" #福利
+colnames(data)[colnames(data) == "type.y"] <- "C_industry" 
+# 查看job_id是否都是唯一的  
+unique_job_id <- !any(duplicated(data$job_id))
+unique_job_id
+#结果是true，说明job_id唯一的。
+#终于除了salary和pay_period都解决完啦
+#前面的数据已经好了就用这个data
+
+
+# 创建一个包含所有可能福利类型的向量
+benefit_types <- c("401(k)", "Child care support", "Commuter benefits", "Dental insurance", 
+                   "Disability insurance", "Medical insurance", "Paid paternity leave", 
+                   "Paid maternity leave","Pension plan", "Student loan assistance", "Tuition assistance", 
+                   "Vision insurance")
+
+# 将缺失值转换为字符串 "NA"，方便在后续的匹配中处理
+data$benefit_type[is.na(data$benefit_type)] <- "NA"
+
+# 循环遍历每种福利类型，并添加对应的二分类变量列
+for (bt in benefit_types) {  
+  # 使用 strsplit() 函数将字符串拆分为单独的福利类型
+ data[[bt]] <- ifelse(sapply(strsplit(data$benefit_type, ", "), function(x) bt %in% x), 1, 0)  
+ }
+
+# 检查数据框的结构
+str(data)
+#删除原来的benefit_type
+data <- subset(data,select=-c(benefit_type))
+#至此福利类型结果已完成
+
+table(data$formatted_work_type)
+table(data$work_type)
+#到工作类型,发现这两列是一个东西，删除formatted_work_type
+#删除formatted_work_type
+data <- subset(data,select=-c(work_type))
+# 查看新数据框的前几行  
+
+#变量类型转换
+#首先各种福利类型是因子变量，工作类型、远程办公、formatted_experience_level
+#首先处理formatted_work_type中的空值为unknown
+# 将空字符串替换为 "none"
+for (i in 1:length(data$formatted_experience_level)) {  
+  if (is.na(data$formatted_experience_level[i]) || data$formatted_experience_level[i] == "") {  
+    data$formatted_experience_level[i] <- "none"  
+  }  
+}
+#我就做到这里啦，成功啦！剩下的各自自己改变一下数据类型（如果需要）
+
+
+#删除不需要的数据
+rm(benefits)
+rm(companies)
+rm(company_industries)
+rm(employee_counts)
+rm(industries)
+rm(industry)
+rm(job_industries)
+rm(job_skills)
+rm(latest_counts)
+rm(postings)
+rm(postings_benefits)
+rm(postings_benefits_skills)
+rm(postings_skills_benefits_industry)
+rm(skills)
+
+#至此数据预处理圆满完成！！！开心~
+#呜呜呜呜发现要统一类型呢
+#先给401（k)改个名
+data$`401(k)`<- as.factor(data$`401(k)`)
+data$`Child care support` <- as.factor(data$`Child care support`)
+data$`Commuter benefits` <- as.factor(data$`Commuter benefits`)
+data$`Dental insurance` <- as.factor(data$`Dental insurance`)
+data$`Disability insurance` <- as.factor(data$`Disability insurance`)
+data$`Medical insurance` <- as.factor(data$`Medical insurance`)
+data$`Paid paternity leave` <- as.factor(data$`Paid paternity leave`)
+data$`Paid maternity leave` <- as.factor(data$`Paid maternity leave`)
+data$`Pension plan` <- as.factor(data$`Pension plan`)
+data$`Student loan assistance` <- as.factor(data$`Student loan assistance`)
+data$`Tuition assistance` <- as.factor(data$`Tuition assistance`)
+data$`Vision insurance` <- as.factor(data$`Vision insurance`)
+#给401（k)改个名——查找网上资料是retirement savings plan,其他也改名，后面不好弄空格
+colnames(data)[colnames(data) == "401(k)"] <- "Retirement_savings_plan"
+colnames(data)[colnames(data) == "Child care support"] <- "Child_care_support"
+colnames(data)[colnames(data) == "Commuter benefits"] <- "Commuter_benefits"
+colnames(data)[colnames(data) == "Dental insurance"] <- "Dental_insurance"
+colnames(data)[colnames(data) == "Disability insurance"] <- "Disability_insurance"
+colnames(data)[colnames(data) == "Medical insurance"] <- "Medical insurance"
+colnames(data)[colnames(data) == "Paid paternity leave"] <- "Paid_paternity_leave"
+colnames(data)[colnames(data) == "Paid maternity leave"] <- "Paid_maternity_leave"
+colnames(data)[colnames(data) == "Pension plan"] <- "Pension_plan"
+colnames(data)[colnames(data) == "Student loan assistance"] <- "Student_loan_assistance"
+colnames(data)[colnames(data) == "Tuition assistance"] <- "Tuition_assistance"
+colnames(data)[colnames(data) == "Vision insurance"] <- "Vision_insurance"
+
+#剩下的
+data$formatted_work_type <- as.factor(data$formatted_work_type)
+data$remote_allowed <- as.factor(data$remote_allowed)
+data$formatted_experience_level <- as.factor(data$formatted_experience_level)
+data$views <- as.numeric(data$views)
+data$applies <- as.numeric(data$applies)
+data$employee_count <- as.numeric(data$employee_count)
+data$follower_count <- as.numeric(data$follower_count)
+#符合大家代码，改变一下数据的名字
+merged_data <- data
+rm(data)
+```
+
+```{r}
+
+selected_data <- merged_data 
+ 
+```
+
+```{r}
+# 假设data是您的原始数据集  
+view_applies <- merged_data[, c("views", "applies")]  
+
+# 标准化数据  
+scaled_data <- scale(view_applies)  
+
+# 加载cluster包并进行PAM聚类  
+library(cluster)  
+
+set.seed(123)  # 为了结果的可重复性  
+k <- 2 # 假设我们选择2个medoids  
+pam_result <- pam(scaled_data, k)  
+
+# 将聚类结果添加为新列  
+view_applies$cluster <- as.factor(pam_result$cluster)  
+selected_data$cluster <- as.factor(pam_result$cluster)  
+
+
+# 计算每一类diff的平均值  
+cluster_stats <- selected_data %>%  
+  group_by(cluster) %>%  
+  summarise(mean_diff = mean(diff, na.rm = TRUE), # 计算每一类的diff平均值  
+            n = n()) # 计算每一类的样本数  
+  print(cluster_stats)  
+# 可视化聚类结果  
+ggplot(selected_data, aes(x = views, y = applies, color = cluster)) +  
+  geom_point(size = 3, alpha = 0.7) +  
+  labs(title = "Clustering of Job Positions by Views and Applies",  
+       x = "Views", y = "Applies", color = "Cluster") +  
+  theme_minimal() +  
+  scale_color_manual(values = c("#E69F00", "#56B4E9")) 
+
+```
+```{r}
+# 确保已经加载了dplyr包  
+library(dplyr)  
+  
+# 假设你已经有了带有Cluster列的view_applies数据集  
+# 筛选cluster为1的行  
+selected_data_cluster1<- selected_data[selected_data$cluster == 1, ]  
+selected_data_cluster2<- selected_data[selected_data$cluster == 2, ]  
+# 计算cluster为1的views和applies的比值的平均值  
+cluster1_average_ratio <- view_applies %>%  
+  filter(cluster == 1 & applies > 0) %>%  # 过滤出cluster为1且applies不为0的行  
+  summarise(average_ratio = mean(views / applies, na.rm = TRUE))  # 计算比值的平均值，忽略NA值  
+  
+# 打印cluster为1的比值的平均值  
+print(paste("Cluster 1 average ratio:", cluster1_average_ratio$average_ratio))  
+  
+# 计算cluster为2的views和applies的比值的平均值  
+cluster2_average_ratio <- view_applies %>%  
+  filter(cluster == 2 & applies > 0) %>%  # 过滤出cluster为2且applies不为0的行  
+  summarise(average_ratio = mean(views / applies, na.rm = TRUE))  # 计算比值的平均值，忽略NA值  
+  
+# 打印cluster为2的比值的平均值  
+print(paste("Cluster 2 average ratio:", cluster2_average_ratio$average_ratio))
+```
+```{r}
+# 检查selected_data_cluster1中每一列的数据类型  
+column_classes <- sapply(selected_data_cluster1, class)  
+print(column_classes)  
+
+# 选择所有数值型列（假设它们是数值、整数或双精度数）  
+numeric_columns <- selected_data_cluster1[, sapply(selected_data_cluster1, is.numeric)]  
+  
+# 确保views和applies也在numeric_columns中，如果不在，则添加它们（假设它们是数值型）  
+# 这里我们假设views是第一列，applies是第二列  
+if (!"views" %in% colnames(numeric_columns)) {  
+  numeric_columns <- cbind(views = selected_data_cluster1$views, numeric_columns)  
+}  
+if (!"applies" %in% colnames(numeric_columns)) {  
+  numeric_columns <- cbind(numeric_columns, applies = selected_data_cluster1$applies)  
+}  
+  
+# 计算相关系数矩阵  
+cor_matrix <- cor(numeric_columns, use = "complete.obs")  
+# 方法参数解释：  
+# method = "color" 表示使用颜色来表示相关系数的强度  
+# type = "upper" 表示只绘制上半部分的矩阵（因为相关性矩阵是对称的）  
+# tl.pos = "lt" 表示标签在左侧和顶部  
+# tl.cex = 0.8 控制标签大小  
+# addrect = 3 在相关系数绝对值大于0.7（或你选择的阈值）的单元格周围添加矩形框
+# 绘制相关性热图（如之前所示）  
+library(corrplot)  
+corrplot(cor_matrix, method = "color", type = "upper", tl.pos = "lt", tl.cex = 0.8, addrect = 3)
+```
+
+
+```{r}
+# 加载必要的库  
+library(tm)  
+  
+# 假设你的数据集selected_data是一个data.frame，且包含title和P_description两列  
+# 将title和P_description合并为一个新的文本列，以便一起分析  
+selected_data_cluster1$full_text <- paste(selected_data_cluster1$title, selected_data_cluster1$P_description, sep=" ")  
+  
+# 创建一个语料库  
+corpus <- Corpus(VectorSource(selected_data_cluster1$full_text))  
+  
+# 清洗文本数据  
+corpus <- tm_map(corpus, content_transformer(tolower)) # 转换为小写  
+corpus <- tm_map(corpus, removePunctuation) # 移除标点  
+corpus <- tm_map(corpus, removeNumbers) # 移除数字  
+corpus <- tm_map(corpus, removeWords, stopwords("english")) # 移除停用词  
+  
+# 创建一个词项-文档矩阵  
+tdm <- TermDocumentMatrix(corpus)  
+  
+# 将TDM转换为矩阵格式，以便进行进一步分析  
+m <- as.matrix(tdm)  
+  
+# 提取关键词（例如，基于词频）  
+word_freqs <- sort(rowSums(m), decreasing = TRUE)  
+head(word_freqs) # 显示词频最高的词  
+  
+# 或者，你可以使用findFreqTerms函数来找到出现频率超过一定阈值的词  
+frequent_terms <- findFreqTerms(tdm, lowfreq = 1500)  
+print(frequent_terms)
+```
+```{r}
+#工作经验
+# 使用table函数计算各唯一值的数量  
+experience_counts <- table(selected_data_cluster1$formatted_experience_level)  
+# 打印结果  
+print(experience_counts)
+
+```
+
+```{r}
+library(dplyr)  
+library(ggplot2)  
+  
+# 假设df是你的数据框，包含formatted_experience_level, views, 和 applies列  
+  
+# 计算每个经验水平要求的平均views和applies  
+experience_summary <- selected_data_cluster1 %>%  
+  group_by(formatted_experience_level) %>%  
+  summarise(avg_views = mean(views, na.rm = TRUE),  
+            avg_applies = mean(applies, na.rm = TRUE))  
+  
+# 绘制柱状图比较平均views和applies  
+ggplot(experience_summary, aes(x = formatted_experience_level, y = avg_views / avg_applies)) +  
+  geom_bar(stat = "identity", fill = "steelblue") +  
+  labs(title = "Views to Applies Ratio by Experience Level",  
+       x = "Experience Level", y = "Views / Applies Ratio") +  
+  theme_minimal() +  
+  coord_flip() # 如果x轴标签太长，可以使用coord_flip()翻转坐标轴
+```
+
+```{r}
+# 假设selected_data是一个数据框(data.frame)，它包含max_salary, pay_period, formatted_work_type, remote_allowed, 和 cluster这些列  
+ 
+  
+# 查看工资为空的行的数量（仅限于cluster为1的行）  
+na_count <- sum(is.na(selected_data_cluster1$max_salary))    
+# 打印空值的数量    
+print(na_count)  
+  
+# 支付时间（仅限于cluster为1的行）  
+# 使用table函数计算pay_period中各唯一值的数量    
+pay_period_counts <- table(selected_data_cluster1$pay_period)    
+# 打印结果    
+print(pay_period_counts)  
+  
+# formatted_work_type（仅限于cluster为1的行）  
+# 使用table函数计算各唯一值的数量    
+formatted_work_type_counts <- table(selected_data_cluster1$formatted_work_type)    
+# 打印结果    
+print(formatted_work_type_counts)  
+  
+# 远程办公（仅限于cluster为1的行）  
+# 使用table函数计算各唯一值的数量    
+remote_allowed_counts <- table(selected_data_cluster1$remote_allowed)    
+# 打印结果    
+print(remote_allowed_counts)
+```
+
+‘“remote_allowed", "Retirement_savings_plan", "Child_care_support", 
+                         "Commuter_benefits", "Dental_insurance", "Disability_insurance", 
+                         "Paid_paternity_leave", "Paid_maternity_leave", 
+                         "Pension_plan", "Student_loan_assistance", "Vision_insurance","formatted_work_type"
+```{r}
+# 假设selected_data是一个包含所有列的数据框  
+  
+  
+# 打印remote_allowed的唯一值数量  
+remote_allowed_counts <- table(selected_data_cluster1$remote_allowed)  
+print("remote_allowed的唯一值数量:")  
+print(remote_allowed_counts)  
+  
+# 打印Retirement_savings_plan的唯一值数量  
+retirement_savings_plan_counts <- table(selected_data_cluster1$Retirement_savings_plan)  
+print("Retirement_savings_plan的唯一值数量:")  
+print(retirement_savings_plan_counts)  
+  
+# 类似地，对其他列进行相同的操作  
+child_care_support_counts <- table(selected_data_cluster1$Child_care_support) 
+commuter_benefits_counts <- table(selected_data_cluster1$Commuter_benefits)  
+dental_insurance_counts <- table(selected_data_cluster1$Dental_insurance)  
+disability_insurance_counts <- table(selected_data_cluster1$Disability_insurance)  
+paid_paternity_leave_counts <- table(selected_data_cluster1$Paid_paternity_leave)  
+paid_maternity_leave_counts <- table(selected_data_cluster1$Paid_maternity_leave)  
+pension_plan_counts <- table(selected_data_cluster1$Pension_plan)  
+student_loan_assistance_counts <- table(selected_data_cluster1$Student_loan_assistance)  
+vision_insurance_counts <- table(selected_data_cluster1$Vision_insurance)  
+formatted_work_type_counts <- table(selected_data_cluster1$formatted_work_type)  
+  
+# 打印结果  
+print("Child_care_support的唯一值数量:")  
+print(child_care_support_counts)  
+print("Commuter_benefits的唯一值数量:")  
+print(commuter_benefits_counts)  
+print("Dental_insurance的唯一值数量:")  
+print(dental_insurance_counts)  
+print("Disability_insurance的唯一值数量:")  
+print(disability_insurance_counts)  
+print("Paid_paternity_leave的唯一值数量:")  
+print(paid_paternity_leave_counts)  
+print("Paid_maternity_leave的唯一值数量:")  
+print(paid_maternity_leave_counts)  
+print("Pension_plan的唯一值数量:")  
+print(pension_plan_counts)  
+print("Student_loan_assistance的唯一值数量:")  
+print(student_loan_assistance_counts)  
+print("Vision_insurance的唯一值数量:")  
+print(vision_insurance_counts)  
+print("formatted_work_type的唯一值数量:")  
+print(formatted_work_type_counts)  
+
+```
+```{r}
+library(ggplot2)  
+  
+# 如果follower_count或employee_count有很多唯一值，考虑使用cut函数或因子水平来减少数量  
+# 例如，对employee_count进行分组  
+selected_data_cluster1$employee_count_group <- cut(selected_data_cluster1$employee_count, breaks = 10)  
+  
+# 使用分组后的employee_count_group创建条形图  
+ggplot(selected_data_cluster1, aes(x = employee_count_group)) +  
+  geom_bar() +  
+  labs(title = "employee_count 分组分布 (cluster = 1)", x = "employee_count 分组", y = "数量") +  
+  theme_minimal()
+
+ 
+# 对follower_count进行分组  
+selected_data_cluster1$follower_count_group <- cut(selected_data_cluster1$follower_count, breaks = 10)  
+  
+# 使用分组后的employee_count_group创建条形图  
+ggplot(selected_data_cluster1, aes(x = follower_count_group)) +  
+  geom_bar() +  
+  labs(title = "follower_count 分组分布 (cluster = 1)", x = "follower_count 分组", y = "数量") +  
+  theme_minimal()
+```
+
+```{r}
+library(ggplot2)  
+  
+# 假设 selected_data 是你的数据框，它包含 cluster, formatted_work_type, 和 remote_allowed 列  
+  
+# 绘制 cluster 为 1在 formatted_work_type 中的数量分布  
+ggplot(selected_data[selected_data$cluster == 1, ], aes(x = formatted_work_type)) +  
+  geom_bar(stat = "count") + # 使用 stat = "count" 来计算每个组的数量  
+  labs(title = "Number of Jobs by formatted_work_type (Cluster = 1)",   
+       x = "Formatted Work Type", y = "Number of Jobs") +  
+  theme_minimal() +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  
+  scale_fill_brewer(palette = "Set1") # 注意这里 scale_fill_brewer 不适用于 geom_bar(stat = "count")  
+  
+# 绘制 cluster 为 1 在 remote_allowed 中的数量分布  
+# 假设 remote_allowed 是一个二元变量（如 "Yes" 和 "No"），否则需要相应地处理  
+ggplot(selected_data[selected_data$cluster == 1, ], aes(x = remote_allowed)) +  
+  geom_bar(stat = "count") +  
+  labs(title = "Number of Jobs by Remote Allowance (Cluster = 1)",   
+       x = "Remote Allowed", y = "Number of Jobs") +  
+  theme_minimal() +  
+  scale_fill_brewer(palette = "Set1") # 这里 scale_fill_brewer 同样不适用，因为条形图默认没有填充  
+  
+# 如果 remote_allowed 是一个数值型变量，你可能需要将其转换为因子类型  
+selected_data$remote_allowed <- factor(selected_data$remote_allowed, labels = c("No", "Yes"))  
+  
+# 然后重新运行上面的远程工作允许条形图代码
+```
+
+
+
+```{r}
+# ...（之前的代码保持不变）  
+# 设置随机种子以保证结果的可重复性  
+set.seed(123)    
+  
+# 将数据分割为训练集和测试集（这里我们只保留80%作为训练集）  
+train_indices <- sample(1:nrow(selected_data), 0.8 * nrow(selected_data))  
+train_data <- selected_data[train_indices, ]  
+test_data <- selected_data[-train_indices, ]  
+  
+# 创建一个二元的目标变量，指示数据点是否属于簇1  
+train_data$is_cluster_1 <- ifelse(train_data$cluster == 1, 0, 1)  
+test_data$is_cluster_1 <- ifelse(test_data$cluster == 1, 0, 1)  
+  
+# 使用glm函数拟合逻辑回归模型（移除views作为自变量）  
+logreg_model <- glm(is_cluster_1 ~ remote_allowed + Vision_insurance + Dental_insurance + Disability_insurance+employee_count+follower_count,    
+                    family = binomial(link = "logit"),    
+                    data = train_data)    
+# 在训练集上进行预测（这部分已经完成了）  
+train_predictions <- predict(logreg_model, newdata = train_data, type = "response")    
+  
+# 将训练集预测的概率转换为类别  
+train_classes <- ifelse(train_predictions > 0.5, 1, 0)    
+
+  
+# 输出模型摘要以查看系数等数值  
+summary(logreg_model)    
+  
+```
+
+```{r}
+# 假设selected_data已经包含聚类结果column 'cluster'（例如，通过K-means得到的）  
+# 并且你想要预测数据点是否属于簇1  
+  
+# 设置随机种子以保证结果的可重复性  
+set.seed(123)    
+  
+# 将数据分割为训练集和测试集（这里我们只保留80%作为训练集）  
+train_indices <- sample(1:nrow(selected_data), 0.8* nrow(selected_data))  
+train_data <- selected_data[train_indices, ]  
+test_data <- selected_data[-train_indices, ]  
+  
+# 创建一个二元的目标变量，指示数据点是否属于簇1  
+train_data$is_cluster_1 <- ifelse(train_data$cluster == 1, 0, 1)  
+test_data$is_cluster_1 <- ifelse(test_data$cluster == 1, 0, 1)  
+  
+# 使用glm函数拟合逻辑回归模型
+logreg_model <- glm(is_cluster_1 ~ remote_allowed  + Dental_insurance ,    
+                    family = binomial(link = "logit"),    
+                    data = train_data)  
+  
+# 输出模型摘要以查看系数等数值  
+summary(logreg_model)    
+  
+
+# 在测试集上进行预测并评估模型性能  
+test_predictions <- predict(logreg_model, newdata = test_data, type = "response")  
+test_classes <- ifelse(test_predictions > 0.5, 1, 0)  
+  
+# 检查测试集中每个类别的样本数量  
+cat("Number of samples in test set belonging to cluster 1:", sum(test_data$is_cluster_1))  
+cat("Number of samples in test set NOT belonging to cluster 1:", sum(1 - test_data$is_cluster_1))  
+  
+# 如果任一类别样本过少，可能需要重新分割数据或调整阈值  
+  
+# 计算混淆矩阵、准确率等指标来评估模型性能  
+confusionMatrix <- table(Prediction = test_classes, Actual = test_data$is_cluster_1)  
+  
+  
+# 假设维度是正确的，计算准确率  
+accuracy <- sum(diag(confusionMatrix)) / sum(confusionMatrix)  
+print(confusionMatrix)  
+print(paste("Accuracy:", accuracy)) 
+  
+
+
+```
+
