@@ -4,6 +4,10 @@ setwd("D:/HuaweiMoveData/Users/雷桑怀里的猫/Desktop")
 # 设置文件存储路径
 setwd("D:/HuaweiMoveData/Users/雷桑怀里的猫/Desktop")
 
+
+
+
+
 # 导入必要的库
 library(readr)
 library(tidyr)
